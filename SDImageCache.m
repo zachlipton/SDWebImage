@@ -14,7 +14,7 @@
 #import "SDWebImageDecoder.h"
 #endif
 
-static NSInteger cacheMaxCacheAge = 60*60*24*7; // 1 week
+static unsigned long long MAX_DISK_USAGE = 200 * 1024 * 1024ULL;
 
 static SDImageCache *instance;
 
@@ -54,11 +54,6 @@ static SDImageCache *instance;
                                                      name:UIApplicationDidReceiveMemoryWarningNotification
                                                    object:nil];
 
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(cleanDisk)
-                                                     name:UIApplicationWillTerminateNotification
-                                                   object:nil];
-
 #if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_4_0
         UIDevice *device = [UIDevice currentDevice];
         if ([device respondsToSelector:@selector(isMultitaskingSupported)] && device.multitaskingSupported)
@@ -71,6 +66,10 @@ static SDImageCache *instance;
         }
 #endif
 #endif
+
+        // Determine initial disk usage, clean if necessary
+        diskUsage = [self findDiskUsage];
+        [self cleanDisk];
     }
 
     return self;
@@ -122,7 +121,10 @@ static SDImageCache *instance;
 
     if (data)
     {
-        [fileManager createFileAtPath:[self cachePathForKey:key] contents:data attributes:nil];
+        if ([fileManager createFileAtPath:[self cachePathForKey:key] contents:data attributes:nil])
+        {
+            diskUsage += [data length];
+        }
     }
     else
     {
@@ -132,15 +134,22 @@ static SDImageCache *instance;
         if (image)
         {
 #if TARGET_OS_IPHONE
-            [fileManager createFileAtPath:[self cachePathForKey:key] contents:UIImageJPEGRepresentation(image, (CGFloat)1.0) attributes:nil];
+            NSData* jpegData = UIImageJPEGRepresentation(image, (CGFloat)1.0);
+            BOOL created = [fileManager createFileAtPath:[self cachePathForKey:key] contents:jpegData attributes:nil];
 #else
             NSArray*  representations  = [image representations];
             NSData* jpegData = [NSBitmapImageRep representationOfImageRepsInArray: representations usingType: NSJPEGFileType properties:nil];
-            [fileManager createFileAtPath:[self cachePathForKey:key] contents:jpegData attributes:nil];
+            BOOL created = [fileManager createFileAtPath:[self cachePathForKey:key] contents:jpegData attributes:nil];
 #endif
+            if (created)
+            {
+                diskUsage += [jpegData length];
+            }
             [image release];
         }
     }
+
+    [self cleanDisk];
 
     [fileManager release];
 }
@@ -324,17 +333,66 @@ static SDImageCache *instance;
 
 - (void)cleanDisk
 {
-    NSDate *expirationDate = [NSDate dateWithTimeIntervalSinceNow:-cacheMaxCacheAge];
-    NSDirectoryEnumerator *fileEnumerator = [[NSFileManager defaultManager] enumeratorAtPath:diskCachePath];
+    if (diskUsage <= MAX_DISK_USAGE)
+    {
+        return;
+    }
+
+    // Delete cached files that were written cacheMaxCacheAge or more seconds ago
+    NSFileManager* manager = [NSFileManager defaultManager];
+    NSDirectoryEnumerator* fileEnumerator = [manager enumeratorAtPath:diskCachePath];
+    NSMutableArray* fileInfos = [NSMutableArray array];
+    for (NSString* fileName in fileEnumerator)
+    {
+        NSString* filePath = [diskCachePath stringByAppendingPathComponent:fileName];
+        NSDictionary* attributes = [manager attributesOfItemAtPath:filePath error:nil];
+        NSDictionary* info = [[NSDictionary alloc] initWithObjectsAndKeys:
+                              filePath, @"path",
+                              [attributes fileModificationDate], @"date",
+                              [NSNumber numberWithUnsignedLongLong:[attributes fileSize]], @"size",
+                              nil];
+        [fileInfos addObject:info];
+        [info release];
+    }
+    
+    // Sort fileInfos array so oldest-created is first
+    [fileInfos sortUsingComparator:^(id obj1, id obj2) {
+        return [[obj1 objectForKey:@"date"] compare:[obj2 objectForKey:@"date"]];
+    }];
+
+    // Delete from oldest till we've reduce disk usage to half MAX_DISK_USAGE bytes
+    unsigned long long diskUsageBefore = diskUsage;
+    for (NSDictionary* info in fileInfos)
+    {
+        if (diskUsage <= MAX_DISK_USAGE / 2)
+        {
+            break;
+        }
+        if ([manager removeItemAtPath:[info objectForKey:@"path"] error:nil])
+        {
+            NSNumber* fileSize = [info objectForKey:@"size"];
+            diskUsage -= [fileSize unsignedLongLongValue];
+        }
+    }
+
+    NSLog(@"Cache disk usage reached %llu KB, cleaned to %llu KB",
+          diskUsageBefore / 1024,
+          diskUsage / 1024);
+}
+
+- (unsigned long long)findDiskUsage
+{
+    // Iterate through cache directory and sum file sizes of all files in cache
+    NSFileManager* manager = [NSFileManager defaultManager];
+    NSDirectoryEnumerator* fileEnumerator = [manager enumeratorAtPath:diskCachePath];
+    unsigned long long usage = 0;
     for (NSString *fileName in fileEnumerator)
     {
         NSString *filePath = [diskCachePath stringByAppendingPathComponent:fileName];
-        NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil];
-        if ([[[attrs fileModificationDate] laterDate:expirationDate] isEqualToDate:expirationDate])
-        {
-            [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
-        }
+        NSDictionary *attributes = [manager attributesOfItemAtPath:filePath error:nil];
+        usage += [attributes fileSize];
     }
+    return usage;
 }
 
 @end
