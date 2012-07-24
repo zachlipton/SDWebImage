@@ -148,4 +148,8 @@ typedef NSString *(^CacheKeyFilter)(NSURL *url);
  */
 - (void)cancelForDelegate:(id<SDWebImageManagerDelegate>)delegate;
 
+// Dijit Additions
+@property (assign, nonatomic) Class customDownloaderSubclass;
+-(void) registerDownloaderSubclass:(Class)subclass;
+
 @end

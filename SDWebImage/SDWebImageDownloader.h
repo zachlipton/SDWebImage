@@ -62,6 +62,7 @@ extern NSString *const SDWebImageDownloadStopNotification;
  * @return A new SDWebImageDownloader instance
  */
 + (id)downloaderWithURL:(NSURL *)url delegate:(id<SDWebImageDownloaderDelegate>)delegate userInfo:(id)userInfo lowPriority:(BOOL)lowPriority;
++ (id)downloaderWithURL:(NSURL *)url delegate:(id<SDWebImageDownloaderDelegate>)delegate userInfo:(id)userInfo lowPriority:(BOOL)lowPriority startImmediately:(BOOL)startImmediately;
 + (id)downloaderWithURL:(NSURL *)url delegate:(id<SDWebImageDownloaderDelegate>)delegate userInfo:(id)userInfo;
 + (id)downloaderWithURL:(NSURL *)url delegate:(id<SDWebImageDownloaderDelegate>)delegate;
 
@@ -74,5 +75,7 @@ extern NSString *const SDWebImageDownloadStopNotification;
 
 // This method is now no-op and is deprecated
 + (void)setMaxConcurrentDownloads:(NSUInteger)max __attribute__((deprecated));
+
+- (void)setRunLoopForConnection:(NSURLConnection *)connection;
 
 @end

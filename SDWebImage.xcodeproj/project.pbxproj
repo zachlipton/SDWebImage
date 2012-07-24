@@ -389,11 +389,10 @@
 			inputPaths = (
 			);
 			outputPaths = (
-				"${BUILT_PRODUCTS_DIR}/../libSDWebImageARC-universal.a",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "xcodebuild -configuration \"Release\" -target \"SDWebImage ARC\" -sdk \"iphonesimulator\" ${ACTION} RUN_CLANG_STATIC_ANALYZER=NO BUILD_DIR=\"${BUILD_DIR}\" BUILD_ROOT=\"${BUILD_ROOT}\"\n\nxcodebuild -configuration \"Release\" -target \"SDWebImage ARC\" -sdk \"iphoneos\" ${ACTION} RUN_CLANG_STATIC_ANALYZER=NO BUILD_DIR=\"${BUILD_DIR}\" BUILD_ROOT=\"${BUILD_ROOT}\"\n\nrm -rf ${BUILT_PRODUCTS_DIR}/../libSDWebImageARC-universal.a\n\nlipo -create \"${BUILT_PRODUCTS_DIR}/../Release-iphonesimulator/libSDWebImageARC.a\" \\\n\"${BUILT_PRODUCTS_DIR}/../Release-iphoneos/libSDWebImageARC.a\" -output \\\n\"${BUILT_PRODUCTS_DIR}/../libSDWebImageARC-universal.a\"";
+			shellScript = "xcodebuild -configuration \"Release\" -target \"SDWebImage ARC\" -sdk \"iphonesimulator\" ${ACTION} RUN_CLANG_STATIC_ANALYZER=NO BUILD_DIR=\"${BUILD_DIR}\" BUILD_ROOT=\"${BUILD_ROOT}\"\n\nxcodebuild -configuration \"Release\" -target \"SDWebImage ARC\" -sdk \"iphoneos\" ${ACTION} RUN_CLANG_STATIC_ANALYZER=NO BUILD_DIR=\"${BUILD_DIR}\" BUILD_ROOT=\"${BUILD_ROOT}\"\n\nrm -f ${BUILD_ROOT}/libSDWebImageARC-universal.a\n\nlipo -create \"${BUILD_ROOT}/Release-iphonesimulator/libSDWebImageARC.a\" \\\n\"${BUILD_ROOT}/Release-iphoneos/libSDWebImageARC.a\" -output \\\n\"${BUILD_ROOT}/libSDWebImageARC-universal.a\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -660,6 +659,7 @@
 				921E659E15B9F53D00C83F85 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

@@ -32,10 +32,15 @@ NSString *const SDWebImageDownloadStopNotification = @"SDWebImageDownloadStopNot
 
 + (id)downloaderWithURL:(NSURL *)url delegate:(id<SDWebImageDownloaderDelegate>)delegate userInfo:(id)userInfo
 {
-    return [self downloaderWithURL:url delegate:delegate userInfo:userInfo lowPriority:NO];
+    return [self downloaderWithURL:url delegate:delegate userInfo:userInfo lowPriority:NO startImmediately:NO];
 }
 
 + (id)downloaderWithURL:(NSURL *)url delegate:(id<SDWebImageDownloaderDelegate>)delegate userInfo:(id)userInfo lowPriority:(BOOL)lowPriority
+{
+    return [self downloaderWithURL:url delegate:delegate userInfo:userInfo lowPriority:lowPriority startImmediately:NO];
+}
+
++ (id)downloaderWithURL:(NSURL *)url delegate:(id<SDWebImageDownloaderDelegate>)delegate userInfo:(id)userInfo lowPriority:(BOOL)lowPriority startImmediately:(BOOL)startImmediately
 {
     // Bind SDNetworkActivityIndicator if available (download it here: http://github.com/rs/SDNetworkActivityIndicator )
     // To use it, just add #import "SDNetworkActivityIndicator.h" in addition to the SDWebImage import
@@ -64,7 +69,8 @@ NSString *const SDWebImageDownloadStopNotification = @"SDWebImageDownloadStopNot
     downloader.delegate = delegate;
     downloader.userInfo = userInfo;
     downloader.lowPriority = lowPriority;
-    [downloader performSelectorOnMainThread:@selector(start) withObject:nil waitUntilDone:YES];
+    if (startImmediately)
+        [downloader performSelectorOnMainThread:@selector(start) withObject:nil waitUntilDone:YES];
     return downloader;
 }
 
@@ -80,16 +86,13 @@ NSString *const SDWebImageDownloadStopNotification = @"SDWebImageDownloadStopNot
     self.connection = SDWIReturnAutoreleased([[NSURLConnection alloc] initWithRequest:request delegate:self startImmediately:NO]);
 
     // If not in low priority mode, ensure we aren't blocked by UI manipulations (default runloop mode for NSURLConnection is NSEventTrackingRunLoopMode)
-    if (!lowPriority)
-    {
-        [connection scheduleInRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
-    }
+    [self setRunLoopForConnection:self.connection];
     [connection start];
     SDWIRelease(request);
 
     if (connection)
     {
-        [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStartNotification object:nil];
+        [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStartNotification object:self];
     }
     else
     {
@@ -100,13 +103,17 @@ NSString *const SDWebImageDownloadStopNotification = @"SDWebImageDownloadStopNot
     }
 }
 
+- (void)setRunLoopForConnection:(NSURLConnection *)connection {
+    return;
+}
+
 - (void)cancel
 {
     if (connection)
     {
         [connection cancel];
         self.connection = nil;
-        [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStopNotification object:nil];
+        [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStopNotification object:self];
     }
 }
 
@@ -123,7 +130,7 @@ NSString *const SDWebImageDownloadStopNotification = @"SDWebImageDownloadStopNot
     {
         [aConnection cancel];
 
-        [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStopNotification object:nil];
+        [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStopNotification object:self];
 
         if ([delegate respondsToSelector:@selector(imageDownloader:didFailWithError:)])
         {
@@ -222,7 +229,7 @@ NSString *const SDWebImageDownloadStopNotification = @"SDWebImageDownloadStopNot
 {
     self.connection = nil;
 
-    [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStopNotification object:nil];
+    [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStopNotification object:self];
 
     if ([delegate respondsToSelector:@selector(imageDownloaderDidFinish:)])
     {
@@ -238,7 +245,7 @@ NSString *const SDWebImageDownloadStopNotification = @"SDWebImageDownloadStopNot
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStopNotification object:nil];
+    [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStopNotification object:self];
 
     if ([delegate respondsToSelector:@selector(imageDownloader:didFailWithError:)])
     {

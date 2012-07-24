@@ -288,7 +288,9 @@ static SDWebImageManager *instance;
 
     if (!downloader)
     {
-        downloader = [SDWebImageDownloader downloaderWithURL:url delegate:self userInfo:info lowPriority:(options & SDWebImageLowPriority)];
+        Class downloaderClass = self.customDownloaderSubclass ? : [SDWebImageDownloader class];
+        downloader = objc_msgSend(downloaderClass, @selector(downloaderWithURL:delegate:userInfo:lowPriority:startImmediately:),
+                                  url, self, info, (options & SDWebImageLowPriority), NO);
         [downloaderForURL setObject:downloader forKey:url];
     }
     else
@@ -487,6 +489,12 @@ static SDWebImageManager *instance;
     // Release the downloader
     [downloaderForURL removeObjectForKey:downloader.url];
     SDWIRelease(downloader);
+}
+
+#pragma mark Dijit additions
+@synthesize customDownloaderSubclass;
+-(void) registerDownloaderSubclass:(Class) aClass {
+    self.customDownloaderSubclass = aClass;
 }
 
 @end
