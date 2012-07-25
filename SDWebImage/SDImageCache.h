@@ -18,6 +18,7 @@
     NSMutableDictionary *memCache;
     NSString *diskCachePath;
     NSOperationQueue *cacheInQueue, *cacheOutQueue;
+    unsigned long long diskUsage;
 }
 
 /**
