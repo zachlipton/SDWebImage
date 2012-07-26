@@ -9,6 +9,7 @@
 #import "SDWebImageManager.h"
 #import "SDImageCache.h"
 #import "SDWebImageDownloader.h"
+#import "UIImage+RequestMetadata.h"
 #import <objc/message.h>
 
 #if NS_BLOCKS_AVAILABLE
@@ -242,6 +243,7 @@ static SDWebImageManager *instance;
 
 - (void)imageCache:(SDImageCache *)imageCache didFindImage:(UIImage *)image forKey:(NSString *)key userInfo:(NSDictionary *)info
 {
+    [image setIsCacheResponse:YES];
     NSURL *url = [info objectForKey:@"url"];
     id<SDWebImageManagerDelegate> delegate = [info objectForKey:@"delegate"];
 
