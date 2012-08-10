@@ -20,6 +20,12 @@ typedef void(^FailureBlock)(NSError *error);
 
 static SDWebImageManager *instance;
 
+@interface SDWebImageManager () {
+    NSObject *handlersMutexObject;
+}
+
+@end
+
 @implementation SDWebImageManager
 
 #if NS_BLOCKS_AVAILABLE
@@ -37,6 +43,7 @@ static SDWebImageManager *instance;
         cacheURLs = [[NSMutableArray alloc] init];
         downloaderForURL = [[NSMutableDictionary alloc] init];
         failedURLs = [[NSMutableArray alloc] init];
+        handlersMutexObject = [NSObject new];
     }
     return self;
 }
@@ -50,6 +57,7 @@ static SDWebImageManager *instance;
     SDWISafeRelease(cacheURLs);
     SDWISafeRelease(downloaderForURL);
     SDWISafeRelease(failedURLs);
+    SDWISafeRelease(handlersMutexObject)
     SDWISuperDealoc;
 }
 
@@ -336,6 +344,8 @@ static SDWebImageManager *instance;
 #if NS_BLOCKS_AVAILABLE // ONLY update via progress blocks :)
 - (void)imageDownloader:(SDWebImageDownloader *)downloader didUpdateProgress:(NSUInteger)receivedSize expectedSize:(long long)expectedSize
 {
+    // We're not using progress blocks and this check causes concurrency issues (called from the webthread, so just return)
+    return;
     // Notify all the downloadDelegates with this downloader
     for (NSInteger idx = (NSInteger)[downloaders count] - 1; idx >= 0; idx--)
     {
