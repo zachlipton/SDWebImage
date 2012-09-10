@@ -215,7 +215,7 @@ static unsigned long long MAX_DISK_USAGE = 200 * 1024 * 1024ULL;
         return;
     }
 
-    [memCache setObject:image forKey:key cost:image.size.width * image.size.height];
+    [memCache setObject:SDScaledImageForPath(key, data) forKey:key cost:image.size.width * image.size.height];
 
     if (toDisk)
     {
