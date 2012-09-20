@@ -208,28 +208,30 @@ static SDWebImageManager *instance;
 - (void)cancelForDelegate:(id<SDWebImageManagerDelegate>)delegate
 {
     NSUInteger idx;
-    while ((idx = [cacheDelegates indexOfObjectIdenticalTo:delegate]) != NSNotFound)
-    {
-        [cacheDelegates removeObjectAtIndex:idx];
-        [cacheURLs removeObjectAtIndex:idx];
-    }
-
-    while ((idx = [downloadDelegates indexOfObjectIdenticalTo:delegate]) != NSNotFound)
-    {
-        SDWebImageDownloader *downloader = SDWIReturnRetained([downloaders objectAtIndex:idx]);
-
-        [downloadInfo removeObjectAtIndex:idx];
-        [downloadDelegates removeObjectAtIndex:idx];
-        [downloaders removeObjectAtIndex:idx];
-
-        if (![downloaders containsObject:downloader])
+    @synchronized(handlersMutexObject) {
+        while ((idx = [cacheDelegates indexOfObjectIdenticalTo:delegate]) != NSNotFound)
         {
-            // No more delegate are waiting for this download, cancel it
-            [downloader cancel];
-            [downloaderForURL removeObjectForKey:downloader.url];
+            [cacheDelegates removeObjectAtIndex:idx];
+            [cacheURLs removeObjectAtIndex:idx];
         }
 
-        SDWIRelease(downloader);
+        while ((idx = [downloadDelegates indexOfObjectIdenticalTo:delegate]) != NSNotFound)
+        {
+            SDWebImageDownloader *downloader = SDWIReturnRetained([downloaders objectAtIndex:idx]);
+            
+            [downloadInfo removeObjectAtIndex:idx];
+            [downloadDelegates removeObjectAtIndex:idx];
+            [downloaders removeObjectAtIndex:idx];
+            
+            if (![downloaders containsObject:downloader])
+            {
+                // No more delegate are waiting for this download, cancel it
+                [downloader cancel];
+                [downloaderForURL removeObjectForKey:downloader.url];
+            }
+            
+            SDWIRelease(downloader);
+        }
     }
 }
 
@@ -291,9 +293,10 @@ static SDWebImageManager *instance;
         success(image);
     }
 #endif
-
-    [cacheDelegates removeObjectAtIndex:idx];
-    [cacheURLs removeObjectAtIndex:idx];
+    @synchronized(handlersMutexObject) {
+        [cacheDelegates removeObjectAtIndex:idx];
+        [cacheURLs removeObjectAtIndex:idx];
+    }
 }
 
 - (void)imageCache:(SDImageCache *)imageCache didNotFindImageForKey:(NSString *)key userInfo:(NSDictionary *)info
@@ -309,11 +312,14 @@ static SDWebImageManager *instance;
         return;
     }
 
-    [cacheDelegates removeObjectAtIndex:idx];
-    [cacheURLs removeObjectAtIndex:idx];
+    SDWebImageDownloader *downloader;
+    @synchronized(handlersMutexObject) {
+        [cacheDelegates removeObjectAtIndex:idx];
+        [cacheURLs removeObjectAtIndex:idx];
 
-    // Share the same downloader for identical URLs so we don't download the same URL several times
-    SDWebImageDownloader *downloader = [downloaderForURL objectForKey:url];
+        // Share the same downloader for identical URLs so we don't download the same URL several times
+        downloader = [downloaderForURL objectForKey:url];
+    }
 
     if (!downloader)
     {
@@ -334,9 +340,11 @@ static SDWebImageManager *instance;
         downloader.progressive = YES;
     }
 
-    [downloadInfo addObject:info];
-    [downloadDelegates addObject:delegate];
-    [downloaders addObject:downloader];
+    @synchronized(handlersMutexObject) {
+        [downloadInfo addObject:info];
+        [downloadDelegates addObject:delegate];
+        [downloaders addObject:downloader];
+    }
 }
 
 #pragma mark SDWebImageDownloaderDelegate
@@ -470,10 +478,11 @@ static SDWebImageManager *instance;
                 }
 #endif
             }
-
-            [downloaders removeObjectAtIndex:uidx];
-            [downloadInfo removeObjectAtIndex:uidx];
-            [downloadDelegates removeObjectAtIndex:uidx];
+            @synchronized(handlersMutexObject) {
+                [downloaders removeObjectAtIndex:uidx];
+                [downloadInfo removeObjectAtIndex:uidx];
+                [downloadDelegates removeObjectAtIndex:uidx];
+            }
         }
     }
 
@@ -494,7 +503,9 @@ static SDWebImageManager *instance;
 
 
     // Release the downloader
-    [downloaderForURL removeObjectForKey:downloader.url];
+    @synchronized(handlersMutexObject) {
+        [downloaderForURL removeObjectForKey:downloader.url];
+    }
     SDWIRelease(downloader);
 }
 
@@ -538,14 +549,18 @@ static SDWebImageManager *instance;
             }
 #endif
 
-            [downloaders removeObjectAtIndex:uidx];
-            [downloadInfo removeObjectAtIndex:uidx];
-            [downloadDelegates removeObjectAtIndex:uidx];
+            @synchronized(handlersMutexObject) {
+                [downloaders removeObjectAtIndex:uidx];
+                [downloadInfo removeObjectAtIndex:uidx];
+                [downloadDelegates removeObjectAtIndex:uidx];
+            }
         }
     }
 
     // Release the downloader
-    [downloaderForURL removeObjectForKey:downloader.url];
+    @synchronized(handlersMutexObject) {
+        [downloaderForURL removeObjectForKey:downloader.url];
+    }
     SDWIRelease(downloader);
 }
 
