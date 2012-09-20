@@ -514,54 +514,52 @@ static SDWebImageManager *instance;
     SDWIRetain(downloader);
 
     // Notify all the downloadDelegates with this downloader
-    for (NSInteger idx = (NSInteger)[downloaders count] - 1; idx >= 0; idx--)
-    {
-        NSUInteger uidx = (NSUInteger)idx;
-        SDWebImageDownloader *aDownloader = [downloaders objectAtIndex:uidx];
-        if (aDownloader == downloader)
+    @synchronized(handlersMutexObject) {
+        for (NSInteger idx = (NSInteger)[downloaders count] - 1; idx >= 0; idx--)
         {
-            id<SDWebImageManagerDelegate> delegate = [downloadDelegates objectAtIndex:uidx];
-            SDWIRetain(delegate);
-            SDWIAutorelease(delegate);
-
-            if ([delegate respondsToSelector:@selector(webImageManager:didFailWithError:)])
+            NSUInteger uidx = (NSUInteger)idx;
+            SDWebImageDownloader *aDownloader = [downloaders objectAtIndex:uidx];
+            if (aDownloader == downloader)
             {
-                [delegate performSelector:@selector(webImageManager:didFailWithError:) withObject:self withObject:error];
-            }
-            if ([delegate respondsToSelector:@selector(webImageManager:didFailWithError:forURL:)])
-            {
-                objc_msgSend(delegate, @selector(webImageManager:didFailWithError:forURL:), self, error, downloader.url);
-            }
-            if ([delegate respondsToSelector:@selector(webImageManager:didFailWithError:forURL:userInfo:)])
-            {
-                NSDictionary *userInfo = [[downloadInfo objectAtIndex:uidx] objectForKey:@"userInfo"];
-                if ([userInfo isKindOfClass:NSNull.class])
+                id<SDWebImageManagerDelegate> delegate = [downloadDelegates objectAtIndex:uidx];
+                SDWIRetain(delegate);
+                SDWIAutorelease(delegate);
+                
+                if ([delegate respondsToSelector:@selector(webImageManager:didFailWithError:)])
                 {
-                    userInfo = nil;
+                    [delegate performSelector:@selector(webImageManager:didFailWithError:) withObject:self withObject:error];
                 }
-                objc_msgSend(delegate, @selector(webImageManager:didFailWithError:forURL:userInfo:), self, error, downloader.url, userInfo);
-            }
+                if ([delegate respondsToSelector:@selector(webImageManager:didFailWithError:forURL:)])
+                {
+                    objc_msgSend(delegate, @selector(webImageManager:didFailWithError:forURL:), self, error, downloader.url);
+                }
+                if ([delegate respondsToSelector:@selector(webImageManager:didFailWithError:forURL:userInfo:)])
+                {
+                    NSDictionary *userInfo = [[downloadInfo objectAtIndex:uidx] objectForKey:@"userInfo"];
+                    if ([userInfo isKindOfClass:NSNull.class])
+                    {
+                        userInfo = nil;
+                    }
+                    objc_msgSend(delegate, @selector(webImageManager:didFailWithError:forURL:userInfo:), self, error, downloader.url, userInfo);
+                }
 #if NS_BLOCKS_AVAILABLE
-            if ([[downloadInfo objectAtIndex:uidx] objectForKey:@"failure"])
-            {
-                FailureBlock failure = [[downloadInfo objectAtIndex:uidx] objectForKey:@"failure"];
-                failure(error);
-            }
+                if ([[downloadInfo objectAtIndex:uidx] objectForKey:@"failure"])
+                {
+                    FailureBlock failure = [[downloadInfo objectAtIndex:uidx] objectForKey:@"failure"];
+                    failure(error);
+                }
 #endif
-
-            @synchronized(handlersMutexObject) {
-                [downloaders removeObjectAtIndex:uidx];
-                [downloadInfo removeObjectAtIndex:uidx];
-                [downloadDelegates removeObjectAtIndex:uidx];
+                
+                @synchronized(handlersMutexObject) {
+                    [downloaders removeObjectAtIndex:uidx];
+                    [downloadInfo removeObjectAtIndex:uidx];
+                    [downloadDelegates removeObjectAtIndex:uidx];
+                }
             }
         }
-    }
-
-    // Release the downloader
-    @synchronized(handlersMutexObject) {
         [downloaderForURL removeObjectForKey:downloader.url];
+        SDWIRelease(downloader);
     }
-    SDWIRelease(downloader);
 }
 
 #pragma mark Dijit additions
