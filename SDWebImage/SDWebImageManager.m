@@ -431,7 +431,7 @@ static SDWebImageManager *instance;
                 SDWIRetain(delegate);
                 SDWIAutorelease(delegate);
                 
-                if (image)
+                if (image && image.size.height > 0 && image.size.width > 0)
                 {
                     if ([delegate respondsToSelector:@selector(webImageManager:didFinishWithImage:)])
                     {

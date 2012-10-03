@@ -199,7 +199,7 @@ static unsigned long long MAX_DISK_USAGE = 200 * 1024 * 1024ULL;
 		
 		NSNumber* options = [arguments objectForKey:@"options"];
 		BOOL delaySetImage = [options intValue] & SDWebImageManualSetImage;
-		if (!delaySetImage)
+		if (!delaySetImage && image.size.height > 0 && image.size.width > 0)
 			[mutableArguments setObject:image forKey:@"image"];
     }
 
@@ -291,7 +291,7 @@ static unsigned long long MAX_DISK_USAGE = 200 * 1024 * 1024ULL;
 
     // First check the in-memory cache...
     UIImage *image = [memCache objectForKey:key];
-    if (image)
+    if (image && image.size.height > 0 && image.size.width > 0)
     {
         // ...notify delegate immediately, no need to go async
         if ([delegate respondsToSelector:@selector(imageCache:didFindImage:forKey:userInfo:)])
